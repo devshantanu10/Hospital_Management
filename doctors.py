@@ -1,97 +1,82 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 
+DOCTOR_FILE = "doctors.txt"
 
-doctors = []
+def generate_id():
+    try:
+        with open(DOCTOR_FILE) as f:
+            lines = f.readlines()
+            if not lines:
+                return 1
+            last_id = int(lines[-1].split("|")[0])
+            return last_id + 1
+    except FileNotFoundError:
+        return 1
 
-next_doctor_id = 1
-
-
-
-d_name = d_age = d_gender = d_speciality = d_search = doctor_listbox = None
-
-def build_doctor_ui(frame):
-    global d_name, d_age, d_gender, d_speciality, d_search, doctor_listbox
-
-    ttk.Label(frame, text="Name:").grid(row=0, column=0)
-    d_name = ttk.Entry(frame)
-    d_name.grid(row=0, column=1)
-
-    ttk.Label(frame, text="Age:").grid(row=1, column=0)
-    d_age = ttk.Entry(frame)
-    d_age.grid(row=1, column=1)
-
-    ttk.Label(frame, text="Gender:").grid(row=2, column=0)
-    d_gender = ttk.Entry(frame)
-    d_gender.grid(row=2, column=1)
-
-    ttk.Label(frame, text="Speciality:").grid(row=3, column=0)
-    d_speciality = ttk.Entry(frame)
-    d_speciality.grid(row=3, column=1)
-
-    ttk.Button(frame, text="Add Doctor", command=add_doctor).grid(row=4, column=0, columnspan=2)
-
-    ttk.Label(frame, text="Search/ID:").grid(row=5, column=0)
-    d_search = ttk.Entry(frame)
-    d_search.grid(row=5, column=1)
-
-    ttk.Button(frame, text="Find", command=find_doctor).grid(row=6, column=0)
-    ttk.Button(frame, text="Delete", command=delete_doctor).grid(row=6, column=1)
-
-    doctor_listbox = tk.Listbox(frame, width=60)
-    doctor_listbox.grid(row=7, column=0, columnspan=2, pady=10)
-
-def add_doctor():
-    global next_doctor_id
-    name = d_name.get()
-    if not name:
-        messagebox.showwarning("Oops", "Name is required")
+def save_doctor():
+    did = generate_id()
+    dname = name.get()
+    dage = age.get()
+    dgender = gender.get()
+    if not dname or not dage or not dgender:
+        messagebox.showerror("Error", "All fields are required")
         return
-
-    doctors.append({
-        "id": next_doctor_id,
-        "name": name,
-        "age": d_age.get(),
-        "gender": d_gender.get(),
-        "speciality": d_speciality.get()
-    })
-    next_doctor_id += 1
-    d_name.delete(0, tk.END)
-    d_age.delete(0,tk.END)
-    d_gender.delete(0,tk.END)
-    d_speciality.delete(0, tk.END)
-
-    d_search.delete(0, tk.END)
-    refresh_doctor_list()
-    messagebox.showinfo("Success", "Doctors added")
-    
-
-def refresh_doctor_list():
-    doctor_listbox.delete(0, tk.END)
-    for d in doctors:
-        doctor_listbox.insert(tk.END, f"ID {d['id']}: {d['name']} (Spec: {d['speciality']})")
-
-def find_doctor():
-    pid = d_search.get()
-    if pid.isnumeric():
-        pid = int(pid)
-        for d in doctors:
-            if d["id"] == pid:
-                messagebox.showinfo("Found Doctor",
-                    f"ID {d['id']}\nName: {d['name']}\nAge: {d['age']}\nGender: {d['gender']}\nSpec: {d['speciality']}")
-                return
-            
-    
-    messagebox.showerror("Error", "Doctor not found")
+    with open(DOCTOR_FILE, "a") as f:
+        f.write(f"{did}|{dname}|{dage}|{dgender}\n")
+    refresh()
+    name.delete(0, tk.END)
+    age.delete(0, tk.END)
+    gender.delete(0, tk.END)
 
 def delete_doctor():
-    pid = d_search.get()
-    if pid.isnumeric():
-        pid = int(pid)
-        for d in doctors:
-            if d["id"] == pid:
-                doctors.remove(d)
-                refresh_doctor_list()
-                messagebox.showinfo("Deleted", "Doctor removed")
-                return
-    messagebox.showerror("Error", "Doctor not found")
+    selected = listbox.curselection()
+    if not selected:
+        return
+    doctor = listbox.get(selected).split("|")[0]  # ID
+    try:
+        with open(DOCTOR_FILE, "r") as f:
+            doctors = f.readlines()
+        with open(DOCTOR_FILE, "w") as f:
+            for d in doctors:
+                if d.split("|")[0] != doctor:
+                    f.write(d)
+        refresh()
+    except FileNotFoundError:
+        pass
+
+def refresh():
+    listbox.delete(0, tk.END)
+    try:
+        with open(DOCTOR_FILE) as f:
+            for d in f:
+                listbox.insert(tk.END, d.strip())
+    except FileNotFoundError:
+        pass
+
+def open_doctor_window():
+    global name, age, gender, listbox
+
+    win = tk.Toplevel()
+    win.title("Doctors")
+    win.geometry("500x400")
+
+    tk.Label(win, text="Doctor Name").pack()
+    name = tk.Entry(win)
+    name.pack()
+
+    tk.Label(win, text="Age").pack()
+    age = tk.Entry(win)
+    age.pack()
+
+    tk.Label(win, text="Gender").pack()
+    gender = tk.Entry(win)
+    gender.pack()
+
+    tk.Button(win, text="Add Doctor", command=save_doctor).pack(pady=5)
+    tk.Button(win, text="Delete Doctor", command=delete_doctor).pack(pady=5)
+
+    listbox = tk.Listbox(win, width=50)
+    listbox.pack(pady=10)
+
+    refresh()
